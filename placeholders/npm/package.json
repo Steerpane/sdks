@@ -1,0 +1,9 @@
+{
+  "name": "steerpane",
+  "version": "0.0.1",
+  "description": "Placeholder. Install @steerpane/sdk for the Node client or @steerpane/cli for the command line.",
+  "license": "Apache-2.0",
+  "homepage": "https://steerpane.app",
+  "main": "index.js",
+  "files": ["index.js", "README.md", "LICENSE"]
+}

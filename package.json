@@ -1,0 +1,9 @@
+{
+  "name": "steerpane-sdks-workspace",
+  "private": true,
+  "workspaces": ["node", "cli"],
+  "scripts": {
+    "build": "npm run build --workspace @steerpane/sdk && npm run build --workspace @steerpane/cli",
+    "test": "npm test --workspace @steerpane/sdk && npm test --workspace @steerpane/cli"
+  }
+}

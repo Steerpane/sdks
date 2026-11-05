@@ -1,0 +1,31 @@
+{
+  "name": "@steerpane/sdk",
+  "version": "0.1.0",
+  "description": "Node client for Steerpane: remote browsers for AI agents, with human takeover.",
+  "license": "Apache-2.0",
+  "homepage": "https://steerpane.app",
+  "repository": { "type": "git", "url": "git+https://github.com/Steerpane/sdks.git", "directory": "node" },
+  "keywords": ["browser", "automation", "agents", "playwright", "cdp", "mcp"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.mjs",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": { "playwright-core": ">=1.45" },
+  "peerDependenciesMeta": { "playwright-core": { "optional": true } },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "playwright-core": "^1.50.0",
+    "typescript": "^5.6.0"
+  }
+}

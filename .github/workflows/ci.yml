@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      # Live tests skip themselves here: they need an API and a token.
+      - run: uv venv --python 3.12 && uv pip install -e "./python[playwright]" pytest pyright
+      - run: .venv/bin/python -m pytest -q python/tests && .venv/bin/pyright --pythonpath .venv/bin/python -p python/pyproject.toml
+      - run: npm ci && npm run build && npm test
