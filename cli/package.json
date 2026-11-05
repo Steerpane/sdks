@@ -1,6 +1,6 @@
 {
   "name": "@steerpane/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Command line for Steerpane: remote browsers for AI agents, with human takeover.",
   "license": "Apache-2.0",
   "homepage": "https://steerpane.app",

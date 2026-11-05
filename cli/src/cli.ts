@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { createInterface } from "node:readline";
 import { parseArgs, type ParseArgsConfig } from "node:util";
 import { APIError, DEFAULT_BASE_URL, Steerpane, SteerpaneError, type AgentRun, type Session } from "@steerpane/sdk";
 import { configPath, deleteConfig, readConfig, writeConfig } from "./config.js";
+import { browserLogin, prompt } from "./login.js";
 
 const VERSION = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
@@ -13,8 +13,10 @@ const HELP = `steerpane ${VERSION}: remote browsers for AI agents
 
 Usage: steerpane <command> [options]
 
-  login                         Save an API token (asks for it, or --token-stdin)
+  login                         Sign in with your browser, or paste an API token
+    --paste-token               Paste an API token at a visible, hidden-input prompt
     --token-stdin               Read the token from stdin
+    --no-browser                Print the browser sign-in link without opening it
     --api-url <url>             API to use from now on
   logout                        Delete the saved token
   whoami                        Show which API and token prefix are in use
@@ -68,22 +70,6 @@ function sessionLine(s: Session): string {
   return [s.id, s.status, s.controller, s.current_url ?? "-"].join("\t");
 }
 
-/** Hidden prompt on a terminal. A pipe or a redirect is read as it comes. */
-async function readTokenInteractive(): Promise<string> {
-  if (!process.stdin.isTTY) throw new UsageError("Pass the token on stdin with --token-stdin, or run this in a terminal.");
-  return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stderr, terminal: true });
-    const output = rl as unknown as { _writeToOutput: (s: string) => void };
-    process.stderr.write("API token (not shown): ");
-    output._writeToOutput = () => {};
-    rl.question("", (answer) => {
-      rl.close();
-      process.stderr.write("\n");
-      resolve(answer.trim());
-    });
-  });
-}
-
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
@@ -91,12 +77,28 @@ async function readStdin(): Promise<string> {
 }
 
 async function login(args: string[]): Promise<number> {
-  const { values } = parse(args, { "token-stdin": { type: "boolean" }, "api-url": { type: "string" }, token: { type: "string" } });
+  const { values } = parse(args, { "token-stdin": { type: "boolean" }, "paste-token": { type: "boolean" }, "no-browser": { type: "boolean" }, "api-url": { type: "string" }, token: { type: "string" } });
   if (values.token !== undefined) throw new UsageError("--token isn't accepted, because it would end up in your shell history. Use --token-stdin, or run `steerpane login` and paste it.");
-  const token = values["token-stdin"] ? await readStdin() : await readTokenInteractive();
-  if (!token) throw new UsageError("No token given");
+  if ((values["token-stdin"] || values["paste-token"]) && values["no-browser"]) throw new UsageError("Choose token sign-in or browser sign-in, not both.");
+  if (values["token-stdin"] && values["paste-token"]) throw new UsageError("Choose --token-stdin or --paste-token, not both.");
   const previous = readConfig();
-  const apiUrl = values["api-url"] ?? process.env["STEERPANE_API_URL"] ?? previous.api_url ?? DEFAULT_BASE_URL;
+  const apiUrl = (values["api-url"] ?? process.env["STEERPANE_API_URL"] ?? previous.api_url ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+  // Validate HTTPS / loopback before sending any token or opening a returned link.
+  new Steerpane({ token: "configuration-check", baseUrl: apiUrl });
+  let token: string;
+  if (values["token-stdin"]) token = await readStdin();
+  else if (values["paste-token"]) token = await prompt("API token (input hidden): ", true);
+  else {
+    if (!values["no-browser"]) {
+      if (!process.stdin.isTTY) throw new UsageError("Run this in a terminal, use --no-browser for a sign-in link, or --token-stdin to pipe an API token.");
+      process.stderr.write("Sign in to Steerpane\n  1. Continue in your browser (default)\n  2. Paste an API token\n");
+      const choice = await prompt("Choose [1]: ");
+      if (choice && !["1", "2"].includes(choice)) throw new UsageError("Choose 1 for browser sign-in or 2 to paste a token.");
+      token = choice === "2" ? await prompt("API token (input hidden): ", true) : await browserLogin(apiUrl, false);
+    } else token = await browserLogin(apiUrl, true);
+  }
+  if (!token) throw new UsageError("No token given");
+  process.stderr.write("Checking credentials…\n");
   await new Steerpane({ token, baseUrl: apiUrl }).sessions.list({ limit: 1 }); // refuses a bad token before saving it
   const path = writeConfig({ token, api_url: apiUrl });
   emit(Boolean(values.json), { ok: true, api_url: apiUrl, config: path }, `Logged in to ${apiUrl}. Token saved in ${path}.`);

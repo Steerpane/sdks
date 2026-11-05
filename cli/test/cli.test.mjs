@@ -12,6 +12,7 @@ const SECRET = "stp_live_0000000000000000secretsecret";
 const dir = mkdtempSync(join(tmpdir(), "steerpane-cli-"));
 let server, api;
 const seen = [];
+let deviceOutcome = "approved", polls = 0;
 
 const SESSION = { id: "ses_1", status: "running", controller: "agent", current_url: "https://example.com/", watch_url: "http://app/sessions/ses_1", live_url: "ws://api/live", cdp_url: "ws://api/cdp" };
 
@@ -22,6 +23,15 @@ before(async () => {
     req.on("end", () => {
       seen.push({ method: req.method, url: req.url, auth: req.headers.authorization, body });
       const send = (status, value) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
+      if (req.url === "/v1/oauth/device/code") {
+        polls = 0;
+        return send(200, { device_code: "device-secret", user_code: "BCDF-2345", verification_uri_complete: `${api}/oauth/authorize?user_code=BCDF-2345`, interval: 1, expires_in: 20 });
+      }
+      if (req.url === "/v1/oauth/token") {
+        if (deviceOutcome === "denied") return send(400, { error: "access_denied" });
+        if (polls++ === 0) return send(400, { error: "authorization_pending" });
+        return send(200, { access_token: SECRET, token_type: "Bearer" });
+      }
       if (req.headers.authorization !== `Bearer ${SECRET}`) return send(401, { error: { code: "unauthorized", message: "Bad token" } });
       if (req.url.startsWith("/v1/sessions?")) return send(200, { data: [SESSION], next_cursor: null });
       if (req.url === "/v1/sessions" && req.method === "POST") return send(201, { ...SESSION, status: "starting" });
@@ -66,6 +76,30 @@ test("login saves the token and never prints it", async () => {
   assert.equal(who.code, 0);
   assert.ok(!(who.stdout + who.stderr).includes(SECRET));
   assert.equal(JSON.parse(who.stdout).token_prefix, SECRET.slice(0, 13));
+});
+
+test("browser login prints a link and confirmation code, polls, and saves only after approval", async (t) => {
+  const other = mkdtempSync(join(tmpdir(), "steerpane-cli-device-"));
+  t.after(() => rmSync(other, { recursive: true, force: true }));
+  deviceOutcome = "approved";
+  const r = await cli(["login", "--no-browser", "--api-url", api], { configDir: other });
+  assert.equal(r.code, 0, r.stderr);
+  assert.ok(r.stderr.includes("BCDF-2345") && r.stderr.includes("Waiting for approval"));
+  assert.ok(!(r.stdout + r.stderr).includes(SECRET));
+  assert.ok(!(r.stdout + r.stderr).includes("device-secret"));
+  assert.equal(JSON.parse(readFileSync(join(other, "config.json"), "utf8")).token, SECRET);
+  assert.equal(polls, 2);
+});
+
+test("browser denial saves no token", async (t) => {
+  const other = mkdtempSync(join(tmpdir(), "steerpane-cli-denied-"));
+  t.after(() => rmSync(other, { recursive: true, force: true }));
+  deviceOutcome = "denied";
+  const r = await cli(["login", "--no-browser", "--api-url", api], { configDir: other });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /denied in the browser/);
+  assert.ok(!existsSync(join(other, "config.json")));
+  deviceOutcome = "approved";
 });
 
 test("a bad token isn't saved", async () => {

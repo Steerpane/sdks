@@ -1,6 +1,8 @@
 # Publishing the first versions
 
-For the owner. Nothing here has been run against a registry: no package is published and nobody has logged in. Publishing can't be undone: a version number can never be reused, and PyPI and npm keep the source readable for anyone.
+The first versions (SDKs and CLI 0.1.0) were published on 2026-11-05. The numbered sections below document that initial release. CLI 0.1.1 adds browser sign-in and is a separate npm release; the SDK versions remain 0.1.0. Check registry versions before publishing. Publishing can't be undone: a version number can never be reused, and PyPI and npm keep the source readable for anyone.
+
+CLI-only release: run the dry run, then `npm publish /tmp/steerpane-packages/steerpane-cli-0.1.1.tgz --access public` after CI and deployment pass. A main push deploys the application, not npm packages. npm authentication / two-factor approval is required unless trusted publishing has been configured on the public SDK repository.
 
 **What publishing means.** The packages contain their full source, so anyone can read and reuse the SDK and CLI code under Apache-2.0. That is normal for a client library. The platform repo stays private, and the packages contain no server code, which the dry run checks. Nothing in the decision document conflicts with this licence: its commercial licence is for self-hosting the platform.
 

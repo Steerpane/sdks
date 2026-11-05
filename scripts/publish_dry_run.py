@@ -23,7 +23,7 @@ NPM = shutil.which("npm") or "npm"
 UV = shutil.which("uv")
 EXPECTED = {
     "@steerpane/sdk": ("node", "0.1.0"),
-    "@steerpane/cli": ("cli", "0.1.0"),
+    "@steerpane/cli": ("cli", "0.1.1"),
     "steerpane (npm placeholder)": ("placeholders/npm", "0.0.1"),
     "steerpane-sdk": ("python", "0.1.0"),
     "steerpane (PyPI placeholder)": ("placeholders/pypi", "0.0.1"),
@@ -32,7 +32,7 @@ EXPECTED = {
 BAD_PATHS = re.compile(r"(^|/)(backend|frontend|docs|tests?|\.venv|node_modules|\.env[^/]*|.*\.pem|.*\.key|config\.json|__pycache__)(/|$)")
 BAD_CONTENT = [
     (re.compile(rb"stp_live_[0-9a-f]{20,}|cdt_[0-9a-f]{20,}|whsec_[0-9a-f]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{30,}|pypi-[A-Za-z0-9_-]{30,}"), "something shaped like a real secret"),
-    (re.compile(rb"from app\.|import app\.|backend/app"), "a reference to server code"),
+    (re.compile(rb"from app\.|import app\.|backend/app|conduit_dev"), "a reference to server code"),
     (re.compile(rb"BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY"), "a private key"),
 ]
 
