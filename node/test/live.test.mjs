@@ -93,7 +93,7 @@ live("a real webhook delivery passes the signature check", async () => {
   const server = createServer((req, res) => {
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
-    req.on("end", () => { received.body = Buffer.concat(chunks); received.sig = req.headers["conduit-signature"]; res.end("ok"); });
+    req.on("end", () => { received.body = Buffer.concat(chunks); received.sig = req.headers["steerpane-signature"]; received.legacySig = req.headers["conduit-signature"]; received.headers = req.headers; res.end("ok"); });
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const hook = await client.webhooks.create(`http://127.0.0.1:${server.address().port}/hook`, ["session.started"]);
@@ -101,6 +101,8 @@ live("a real webhook delivery passes the signature check", async () => {
     const secret = hook.secret ?? (await client.webhooks.get(hook.id)).secret;
     await client.webhooks.sendTest(hook.id, { event: "session.started" });
     assert.ok(verifySignature(received.body, received.sig, secret));
+    assert.equal(received.legacySig, received.sig);
+    assert.ok(verifySignature(received.body, received.headers, secret));
     assert.ok(!verifySignature(received.body, received.sig, "whsec_wrong"));
   } finally {
     await client.webhooks.delete(hook.id);

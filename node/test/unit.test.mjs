@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { test } from "node:test";
-import { APIError, constructEvent, HumanInControlError, Steerpane, SteerpaneError, ToolError, verifySignature, WebhookSignatureError } from "../dist/index.js";
+import { APIError, constructEvent, HumanInControlError, SIGNATURE_HEADER, Steerpane, SteerpaneError, ToolError, verifySignature, WebhookSignatureError } from "../dist/index.js";
 
 const TOKEN = "stp_live_0123456789abcdef";
 const json = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
@@ -34,7 +34,7 @@ test("actions body and wait header", async () => {
   let init;
   await clientWith(async (_u, i) => { init = i; return json(200, { ok: true }); }).actions.run("s", "click", { selector: "#a", frame: null }, { waitS: 30 });
   assert.deepEqual(JSON.parse(init.body), { type: "click", selector: "#a" });
-  assert.equal(init.headers["Conduit-Wait"], "30");
+  assert.equal(init.headers["Steerpane-Wait"], "30");
 });
 
 test("GET retries on 503 then succeeds", async () => {
@@ -138,6 +138,27 @@ test("signature during rotation accepts either secret", () => {
   assert.ok(!verifySignature("{}", header, "whsec_other"));
 });
 
+test("signature is read from a request's headers: new name first, then the old one", () => {
+  const now = Math.floor(Date.now() / 1000);
+  const body = '{"a":1}';
+  const good = sign(body, "s", now);
+  const bad = sign(body, "other", now);
+  assert.ok(verifySignature(body, { "steerpane-signature": good }, "s"));
+  assert.ok(verifySignature(body, { "Steerpane-Signature": good }, "s"));
+  assert.ok(verifySignature(body, { "conduit-signature": good }, "s"));
+  assert.ok(verifySignature(body, { "Conduit-Signature": good }, "s"));
+  assert.ok(verifySignature(body, { "steerpane-signature": [good] }, "s"));
+  assert.ok(verifySignature(body, new Headers({ "Steerpane-Signature": good }), "s"));
+  assert.ok(verifySignature(body, new Headers({ "Conduit-Signature": good }), "s"));
+  assert.ok(verifySignature(body, { "steerpane-signature": good, "conduit-signature": bad }, "s"));
+  assert.ok(!verifySignature(body, { "steerpane-signature": bad, "conduit-signature": good }, "s"), "the new name wins when both are there");
+  assert.ok(!verifySignature(body, new Headers({ "Steerpane-Signature": bad, "Conduit-Signature": good }), "s"));
+  assert.ok(!verifySignature(body, {}, "s"));
+  assert.ok(!verifySignature(body, new Headers(), "s"));
+  assert.equal(constructEvent(body, { "conduit-signature": good }, "s").a, 1);
+  assert.equal(SIGNATURE_HEADER, "Steerpane-Signature");
+});
+
 test("constructEvent", () => {
   const body = '{"id":"evt_1","type":"session.ended"}';
   const now = Math.floor(Date.now() / 1000);
@@ -146,7 +167,7 @@ test("constructEvent", () => {
 });
 
 test("a signature made by the server's own signing code passes", () => {
-  // the server signs this way: signature_header(["whsec_vector"], '{"a":1}', 1700000000)
+  // from the server: signature_header(["whsec_vector"], '{"a":1}', 1700000000)
   const header = "t=1700000000,v1=5d485af0d9ddc3522d7a396ce60598f0d5fbb3bacdb1924001168092bc407c18";
   assert.ok(verifySignature('{"a":1}', header, "whsec_vector", { now: 1700000000 }));
   assert.ok(!verifySignature('{"a":2}', header, "whsec_vector", { now: 1700000000 }));

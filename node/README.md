@@ -83,7 +83,7 @@ Pass `{ waitS: 120 }` as the last argument to `actions.run` to hold the call ins
 import { constructEvent, WebhookSignatureError } from "@steerpane/sdk";
 
 try {
-  const event = constructEvent(rawBody, req.headers["conduit-signature"], process.env.WEBHOOK_SECRET!);
+  const event = constructEvent(rawBody, req.headers, process.env.WEBHOOK_SECRET!);
   // deliveries can repeat, so deduplicate on event.id
 } catch (e) {
   if (e instanceof WebhookSignatureError) return res.status(400).end();

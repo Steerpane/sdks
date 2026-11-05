@@ -166,7 +166,9 @@ def test_real_webhook_delivery_passes_signature_check(client):
     class Receiver(http.server.BaseHTTPRequestHandler):
         def do_POST(self):
             received["body"] = self.rfile.read(int(self.headers["content-length"]))
-            received["sig"] = self.headers["Conduit-Signature"]
+            received["sig"] = self.headers["Steerpane-Signature"]
+            received["legacy_sig"] = self.headers["Conduit-Signature"]
+            received["headers"] = self.headers
             self.send_response(200)
             self.end_headers()
 
@@ -184,6 +186,8 @@ def test_real_webhook_delivery_passes_signature_check(client):
         secret = hook.get("secret") or client.webhooks.get(hook["id"])["secret"]
         client.webhooks.send_test(hook["id"], event="session.started")
         assert verify_signature(received["body"], received["sig"], secret)
+        assert received["legacy_sig"] == received["sig"]
+        assert verify_signature(received["body"], received["headers"], secret)
         assert not verify_signature(received["body"], received["sig"], "whsec_wrong")
         assert json.loads(received["body"])["test"] is True
     finally:

@@ -66,7 +66,7 @@ def test_actions_body_and_wait_header():
     seen = {}
 
     def handler(req):
-        seen.update(body=json.loads(req.content), wait=req.headers.get("conduit-wait"))
+        seen.update(body=json.loads(req.content), wait=req.headers.get("steerpane-wait"))
         return httpx.Response(200, json={"ok": True})
 
     client_with(handler).actions.run("s", "click", wait_s=30, selector="#a", frame=None)
@@ -225,10 +225,25 @@ def test_webhook_signature_during_rotation_accepts_either_secret():
 
 
 def test_a_signature_made_by_the_servers_own_signing_code_passes():
-    # the server signs this way: signature_header(["whsec_vector"], '{"a":1}', 1700000000)
+    # from the server: signature_header(["whsec_vector"], '{"a":1}', 1700000000)
     header = "t=1700000000,v1=5d485af0d9ddc3522d7a396ce60598f0d5fbb3bacdb1924001168092bc407c18"
     assert verify_signature('{"a":1}', header, "whsec_vector", now=1700000000)
     assert not verify_signature('{"a":2}', header, "whsec_vector", now=1700000000)
+
+
+def test_signature_is_read_from_request_headers_new_name_first():
+    now = int(time.time())
+    body = b'{"a":1}'
+    good, bad = sign(body, "s", now), sign(body, "other", now)
+    assert verify_signature(body, {"steerpane-signature": good}, "s")
+    assert verify_signature(body, {"Steerpane-Signature": good}, "s")
+    assert verify_signature(body, {"conduit-signature": good}, "s")
+    assert verify_signature(body, {"Conduit-Signature": good}, "s")
+    assert verify_signature(body, httpx.Headers({"Conduit-Signature": good}), "s")
+    assert verify_signature(body, {"steerpane-signature": good, "conduit-signature": bad}, "s")
+    assert not verify_signature(body, {"steerpane-signature": bad, "conduit-signature": good}, "s"), "the new name wins when both are there"
+    assert not verify_signature(body, {}, "s")
+    assert construct_event(body, {"conduit-signature": good}, "s")["a"] == 1
 
 
 def test_construct_event():

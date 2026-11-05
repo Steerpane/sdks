@@ -25,7 +25,7 @@ class _AsyncActions:
 
     async def run(self, session_id: str, type: str, *, wait_s: float | None = None, **args: Any) -> dict[str, Any]:
         """Run any action type. `wait_s` holds the call until a takeover ends instead of raising, up to 600 seconds."""
-        headers = {"Conduit-Wait": str(wait_s)} if wait_s is not None else None
+        headers = {"Steerpane-Wait": str(wait_s)} if wait_s is not None else None
         return await self._c.request("POST", f"/v1/sessions/{_seg(session_id)}/actions", json={"type": type, **_clean(args)}, headers=headers,
                                timeout=max(self._c.timeout, (wait_s or 0) + 30))
 

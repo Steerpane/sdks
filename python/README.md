@@ -84,7 +84,7 @@ from steerpane import construct_event, WebhookSignatureError
 
 def handle(raw_body: bytes, headers) -> None:
     try:
-        event = construct_event(raw_body, headers.get("Conduit-Signature"), WEBHOOK_SECRET)
+        event = construct_event(raw_body, headers, WEBHOOK_SECRET)
     except WebhookSignatureError:
         return respond(400)
     ...  # deliveries can repeat, so deduplicate on event["id"]

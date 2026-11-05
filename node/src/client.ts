@@ -53,7 +53,7 @@ class Actions {
 
   /** Run any action type. `waitS` holds the call until a takeover ends instead of throwing, up to 600 seconds. */
   run<T = Json>(sessionId: string, type: string, args: Json = {}, options: { waitS?: number } = {}): Promise<T> {
-    const headers: Record<string, string> = options.waitS === undefined ? {} : { "Conduit-Wait": String(options.waitS) };
+    const headers: Record<string, string> = options.waitS === undefined ? {} : { "Steerpane-Wait": String(options.waitS) };
     return this.c.request<T>("POST", `/v1/sessions/${seg(sessionId)}/actions`, { json: { type, ...clean(args) }, headers, timeoutMs: Math.max(this.c.timeoutMs, ((options.waitS ?? 0) + 30) * 1000) });
   }
   navigate(sessionId: string, url: string, args: Json = {}) { return this.run(sessionId, "navigate", { url, ...args }); }

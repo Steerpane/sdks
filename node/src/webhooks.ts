@@ -1,5 +1,5 @@
 /**
- * Check a webhook's `Conduit-Signature` header.
+ * Check a webhook's `Steerpane-Signature` header.
  *
  * The header is `t=<unix seconds>,v1=<hex>`, where the hex is HMAC-SHA256 of `<t>.<raw body>` with the endpoint's secret. For 24 hours after
  * a secret rotation it carries one `v1` per secret, and any match is good. Deliveries can repeat: deduplicate on the event's `id`.
@@ -7,8 +7,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { SteerpaneError } from "./errors.js";
 
-export const SIGNATURE_HEADER = "Conduit-Signature";
-export const DELIVERY_HEADER = "Conduit-Delivery";
+export const SIGNATURE_HEADER = "Steerpane-Signature";
+export const DELIVERY_HEADER = "Steerpane-Delivery";
+/** What the header was called before the rename. Read only when `SIGNATURE_HEADER` is absent. */
+const LEGACY_SIGNATURE_HEADER = "Conduit-Signature";
 const DEFAULT_TOLERANCE_S = 300;
 
 export class WebhookSignatureError extends SteerpaneError {
@@ -21,8 +23,30 @@ export interface VerifyOptions {
   now?: number;
 }
 
-/** True when `header` is a fresh, valid signature of `rawBody`. Pass the body as received, not re-encoded JSON. */
-export function verifySignature(rawBody: string | Uint8Array, header: string | null | undefined, secret: string, options: VerifyOptions = {}): boolean {
+/** The signature header's value, or a request's headers: a `Headers` object, or Node's `req.headers`. */
+export type SignatureSource = string | null | undefined | Headers | Record<string, string | string[] | undefined>;
+
+function signatureValue(source: SignatureSource): string | null | undefined {
+  if (source === null || source === undefined || typeof source === "string") return source;
+  const names = [SIGNATURE_HEADER, LEGACY_SIGNATURE_HEADER];
+  if (typeof Headers !== "undefined" && source instanceof Headers) {
+    for (const name of names) {
+      const value = source.get(name);
+      if (value) return value;
+    }
+    return null;
+  }
+  const lowered = new Map(Object.entries(source).map(([k, v]) => [k.toLowerCase(), v]));
+  for (const name of names) {
+    const value = lowered.get(name.toLowerCase());
+    if (value) return Array.isArray(value) ? value[0] : value;
+  }
+  return null;
+}
+
+/** True when `source` holds a fresh, valid signature of `rawBody`. Pass the body as received, not re-encoded JSON. */
+export function verifySignature(rawBody: string | Uint8Array, source: SignatureSource, secret: string, options: VerifyOptions = {}): boolean {
+  const header = signatureValue(source);
   if (!header || !secret) return false;
   const pairs = header.split(",").map((p) => {
     const i = p.indexOf("=");
@@ -41,7 +65,7 @@ export function verifySignature(rawBody: string | Uint8Array, header: string | n
 }
 
 /** Check the signature and return the parsed event, or throw `WebhookSignatureError`. */
-export function constructEvent<T = Record<string, unknown>>(rawBody: string | Uint8Array, header: string | null | undefined, secret: string, options: VerifyOptions = {}): T {
-  if (!verifySignature(rawBody, header, secret, options)) throw new WebhookSignatureError("Webhook signature is missing, invalid or too old");
+export function constructEvent<T = Record<string, unknown>>(rawBody: string | Uint8Array, source: SignatureSource, secret: string, options: VerifyOptions = {}): T {
+  if (!verifySignature(rawBody, source, secret, options)) throw new WebhookSignatureError("Webhook signature is missing, invalid or too old");
   return JSON.parse(typeof rawBody === "string" ? rawBody : Buffer.from(rawBody).toString("utf8")) as T;
 }

@@ -9,13 +9,13 @@ Clients for [Steerpane](https://steerpane.app), remote browsers for AI agents wi
 | [`cli/`](cli) | `@steerpane/cli`, command `steerpane` | Command line, built on the Node client |
 | [`placeholders/`](placeholders) | `steerpane` | Name claims that point to the real packages |
 
-The packages aren't published to npm or PyPI yet. Until then, build from this repo.
+Install with `pip install steerpane-sdk`. The npm packages are being published now.
 
 Each client covers sessions, profiles, browser actions, fetch and search, agent runs, files, embed links and webhook signature checks, plus a helper that connects Playwright over CDP.
 
 ## Tests
 
-Unit tests need no account. Live tests skip themselves unless `STEERPANE_API_URL` and `STEERPANE_API_KEY` are set; use a test account.
+Unit tests need no account. Live tests skip themselves unless `STEERPANE_API_URL` and `STEERPANE_API_TOKEN` are set; use a test account.
 
 ```bash
 # Python

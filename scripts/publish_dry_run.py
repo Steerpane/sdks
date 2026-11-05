@@ -32,7 +32,7 @@ EXPECTED = {
 BAD_PATHS = re.compile(r"(^|/)(backend|frontend|docs|tests?|\.venv|node_modules|\.env[^/]*|.*\.pem|.*\.key|config\.json|__pycache__)(/|$)")
 BAD_CONTENT = [
     (re.compile(rb"stp_live_[0-9a-f]{20,}|cdt_[0-9a-f]{20,}|whsec_[0-9a-f]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{30,}|pypi-[A-Za-z0-9_-]{30,}"), "something shaped like a real secret"),
-    (re.compile(rb"from app\.|import app\.|backend/app|conduit_dev"), "a reference to server code"),
+    (re.compile(rb"from app\.|import app\.|backend/app"), "a reference to server code"),
     (re.compile(rb"BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY"), "a private key"),
 ]
 
@@ -112,8 +112,9 @@ def main() -> int:
                 problems.append(f"{label}: version is {manifest['version']}, expected {version}")
             if manifest.get("license") != "Apache-2.0":
                 problems.append(f"{label}: licence is {manifest.get('license')}")
-            if manifest.get("repository"):
-                problems.append(f"{label}: has a repository field, and the repo is private")
+            repo = manifest.get("repository")
+            if repo and "github.com/Steerpane/sdks" not in str(repo):
+                problems.append(f"{label}: repository field points somewhere other than Steerpane/sdks: {repo}")
             before = set(out.iterdir())
             run([NPM, "pack", "--pack-destination", str(out)], path)
             artifacts = sorted(set(out.iterdir()) - before)

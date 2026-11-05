@@ -3,4 +3,4 @@ export { APIError, HumanInControlError, SteerpaneError, ToolError } from "./erro
 export { connectPlaywright, type ConnectOptions } from "./playwright.js";
 export type * from "./types.js";
 export { VERSION } from "./version.js";
-export { constructEvent, DELIVERY_HEADER, SIGNATURE_HEADER, verifySignature, WebhookSignatureError, type VerifyOptions } from "./webhooks.js";
+export { constructEvent, DELIVERY_HEADER, SIGNATURE_HEADER, verifySignature, WebhookSignatureError, type SignatureSource, type VerifyOptions } from "./webhooks.js";
