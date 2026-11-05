@@ -74,4 +74,11 @@ Set `PACKAGES_PUBLISHED` to `true` in `frontend/src/lib/packages.ts`. `no-phanto
 
 ## Later releases
 
-Bump the version in `pyproject.toml` and `_version.py`, or in `package.json` and `version.ts`, change the expected numbers in `scripts/publish_dry_run.py`, and repeat steps 1 to 4 for that package only. To stop people installing a bad release, `npm deprecate` it or yank it on PyPI. It can't be replaced under the same number.
+Bump the version in `pyproject.toml` and `_version.py`, and in `package.json` and `version.ts`, change the expected numbers in `scripts/publish_dry_run.py`, push, then push a tag matching the Python version, like `v0.1.1`. `.github/workflows/release.yml` tests and publishes, skipping anything already on its registry.
+
+Set this up once, after the first manual publish. No tokens are stored:
+
+- **PyPI:** on `steerpane-sdk`, Publishing, add a GitHub publisher: owner `Steerpane`, repository `sdks`, workflow `release.yml`.
+- **npm:** on both `@steerpane/sdk` and `@steerpane/cli`, Settings, Trusted Publisher, add GitHub Actions with the same three values.
+
+To stop people installing a bad release, `npm deprecate` it or yank it on PyPI. It can't be replaced under the same number.
